@@ -1,31 +1,22 @@
 #!/usr/bin/python3
 
 
+import os
+import sys
+import json
 import socket
+import pickle
+import requests
+import itertools
+
 from bsonrpc import BSONRpc
 from bsonrpc import request, notification, service_class
 
-import sys, os
-
-
-import itertools
 def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
     args = [iter(iterable)] * n
     return ((bytes(bytearray(x))) for x in itertools.zip_longest(fillvalue=fillvalue, *args))
-
-
-s = socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM)
-s.connect((42, 5005))
-
-
-import pickle
-MYDB = {} #in-memory "DB"
-try:
-    MYDB = pickle.loads(open("mydb.dat", "rb").read())
-except:
-    print("✘ Missing mydb.dat, assuming empty state is fine (first run?)", file=sys.stderr)
 
 @service_class
 class ClientServices(object):
@@ -71,11 +62,6 @@ class ClientServices(object):
         return bytes.fromhex(MYDB[k]) if k in MYDB.keys() else None
     '''
 
-import sys
-import socket
-import requests
-import json
-
 def get_aws_session_token():
     """
     Get the AWS credential from EC2 instance metadata
@@ -95,11 +81,21 @@ def get_aws_session_token():
     return credential
 
 
+s = socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM)
+s.connect((42, 5005))
+
+
+MYDB = {} #in-memory "DB"
+try:
+    MYDB = pickle.loads(open("mydb.dat", "rb").read())
+except:
+    print("✘ Missing mydb.dat, assuming empty state is fine (first run?)", file=sys.stderr)
+
+
 rpc = BSONRpc(s, ClientServices())
 server = rpc.get_peer_proxy()
 
 args = sys.argv[1:]
-
 
 if len(args) > 0 and args[0] == "generateProof":
     result = server.generate_proof()
@@ -148,12 +144,20 @@ for el in args:
     else:
         args_encoded.append(el)
 
-result = server.exec(args_encoded)
-result_str = str(result, 'utf8').strip()
-print(result_str)
+(stdout, stderr) = server.exec(args_encoded)
+
+out_str = str(stdout, 'utf8').strip()
+err_str = str(stderr, 'utf8').strip()
+
+with open('./log.txt', 'a') as log_txt:
+    log_txt.write(out_str + err_str)
+
+# print(err_str, file=sys.stderr)
+
+print(out_str)
 rpc.close()
 
-if '✘' in result_str or 'error' in result_str:
+if '✘' in out_str or 'error' in out_str:
     sys.exit(1)
 else:
     sys.exit(0)

@@ -19,7 +19,7 @@ class ExecServices(RpcSubservices):
             elif el[:8] == b"--fileC=": #this is a file continuation
                 tmpf.write(el[8:]) #appending file chunk to already-opened file
                 args[i] = None #let's avoid to pass along multiple occurrences of a chunked file
-                if i+1 < len(args) and args[i+1][:8] == b"--fileC=": continue #this file isn't over 
+                if i+1 < len(args) and args[i+1][:8] == b"--fileC=": continue #this file isn't over
             else:
                 continue #no file processing is needed
 
@@ -40,5 +40,6 @@ class ExecServices(RpcSubservices):
             proc.kill()
             stdout, stderr = proc.communicate()
         for i in tmpfns: os.unlink(i)
-        return stdout+stderr
- 
+
+        return (stdout, stderr)
+
