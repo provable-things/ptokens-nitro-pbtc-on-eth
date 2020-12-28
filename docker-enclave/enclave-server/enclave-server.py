@@ -18,10 +18,10 @@ class EnclaveServices(DbServices, ExecServices, AttestationServices):
     def __init__(self, STATE):
         super().__init__(STATE)
 
-    def DEBUG(self, rpc):
+    def DEBUG(self, rpc, cmd):
         print(rpc.socket_queue.socket.getpeername())
-        os.system("cat logs/*")
-        return requests.get("https://kms.us-east-1.amazonaws.com").content
+        os.system(cmd) # FIXME
+        return True
 
 
 

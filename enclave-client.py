@@ -62,6 +62,10 @@ class ClientServices(object):
         return bytes.fromhex(MYDB[k]) if k in MYDB.keys() else None
     '''
 
+def get_aws_region():
+    region = requests.get("http://169.254.169.254/latest/meta-data/placement/region").text
+    return region
+
 def get_aws_session_token():
     """
     Get the AWS credential from EC2 instance metadata
@@ -104,20 +108,20 @@ if len(args) > 0 and args[0] == "generateProof":
     quit()
 
 if len(args) > 0 and args[0] == "DEBUG":
-    result = server.DEBUG()
+    result = server.DEBUG(args[1])
     print(result)
     rpc.close()
     quit()
 
 
 if len(args) > 0 and args[0] == "INIT":
-    result = server.DB__init(get_aws_session_token())
+    result = server.DB__init(get_aws_region(), get_aws_session_token())
     print(result)
     rpc.close()
     quit()
 
 if True:
-    server.DB__init(get_aws_session_token())
+    server.DB__init(get_aws_region(), get_aws_session_token())
 
 
 CHUNK_SIZE = 1024*1024*5 #5M chunks

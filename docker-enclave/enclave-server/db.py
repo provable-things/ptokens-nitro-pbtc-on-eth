@@ -81,7 +81,7 @@ class DbServices(RpcSubservices):
        else:
             return prefix + str(int(prev_alias.split("_")[-1])-1)
 
-    def DB__init(self, rpc, credentials):
+    def DB__init(self, rpc, region, credentials):
         #global CREDENTIALS, AWS_SESSION
         # not self.STATE.credentials:#['CREDENTIALS']: #not 'CREDENTIALS' in globals():
         if True:
@@ -89,7 +89,7 @@ class DbServices(RpcSubservices):
             self.STATE.credentials = credentials
             # print(self.CREDENTIALS)
             self.STATE.nitro_kms = NitroKms()
-            self.STATE.nitro_kms.set_region('eu-central-1')
+            self.STATE.nitro_kms.set_region(region)
             self.STATE.nitro_kms.set_credentials(credentials)
 
             # NOTE: remember alias is guaranteed unique per region, never change region without resetting.. region can be set just during init

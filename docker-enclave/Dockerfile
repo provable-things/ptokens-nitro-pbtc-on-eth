@@ -23,6 +23,7 @@ COPY ./binaries/libnsm.so .
 COPY ./binaries/libnsm.so ./enclave-server/
 COPY ./binaries/vanilla ./pbtc_app
 
+COPY ./kms_hosts .
 COPY ./traffic-forwarder.py .
 COPY ./db-forwarder.py .
 COPY ./rng-feeder.py .
