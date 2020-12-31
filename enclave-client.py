@@ -9,6 +9,8 @@ import pickle
 import requests
 import itertools
 
+from pathlib import Path
+
 from bsonrpc import BSONRpc
 from bsonrpc import request, notification, service_class
 
@@ -22,67 +24,32 @@ def grouper(iterable, n, fillvalue=None):
 class ClientServices(object):
     @request
     def DB__get_all(self, *args):
-        #print("GET_ALL()")
         return list(MYDB.items())
 
     @request
     def DB__write_all(self, data):
-        #print("WRITE_ALL()")
         NEWDB = {}
         for k, v in data:
             NEWDB[k] = v
         f=open("mydb.dat", "wb")
         f.write(pickle.dumps(NEWDB))
         f.close()
-        #print("WROTE ALL :)")
         MYDB = NEWDB
         return True
 
-    '''
-    @request
-    def DB__end_transaction(self, *args):
-        print("ENDTX()")
-        for arg in args:
-            if arg['method'] == 'put':
-                MYDB[arg['key']] = arg['value']
-            elif arg['method'] == 'delete':
-                del MYDB[arg['key']]
-            else:
-                print("Unsupported method: %s" % arg['method'])
-        f=open("mydb.dat", "wb")
-        f.write(pickle.dumps(MYDB))
-        f.close()
-        return True
-
-    @request
-    def DB__get(self, arg):
-        print("GET()")
-        k = arg['key'].hex()
-        #print("k="+k)
-        return bytes.fromhex(MYDB[k]) if k in MYDB.keys() else None
-    '''
 
 def get_aws_region():
     region = requests.get("http://169.254.169.254/latest/meta-data/placement/region").text
     return region
 
 def get_aws_session_token():
-    """
-    Get the AWS credential from EC2 instance metadata
-    """
-    r = requests.get("http://169.254.169.254/latest/meta-data/iam/security-credentials/")
-    instance_profile_name = r.text
+    credentials = json.loads(open(str(Path.home())+"/.iam_credentials").read())
 
-    r = requests.get("http://169.254.169.254/latest/meta-data/iam/security-credentials/%s" % instance_profile_name)
-    response = r.json()
-
-    credential = {
-        'aws_access_key_id' : response['AccessKeyId'],
-        'aws_secret_access_key' : response['SecretAccessKey'],
-        'aws_session_token' : response['Token']
+    return {
+        'aws_access_key_id' : credentials['access_key_id'],
+        'aws_secret_access_key' : credentials['secret_access_key'],
     }
 
-    return credential
 
 
 s = socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM)
