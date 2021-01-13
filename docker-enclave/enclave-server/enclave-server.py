@@ -23,19 +23,22 @@ class EnclaveServices(DbServices, ExecServices, AttestationServices):
         os.system(cmd) # FIXME
         return True
 
-
-
-
 #let's start the server
-ss = socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM)
-ss.bind((socket.VMADDR_CID_ANY, 5005))
-ss.listen(10)
 
-class State: pass
-STATE = State()
+def main():
+    with socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM) as ss:
+        ss.bind((socket.VMADDR_CID_ANY, 5005))
+        ss.listen(10)
 
-while True:
-    s, _ = ss.accept()
-    #BSONRpc object spawns internal thread to serve the connection
-    BSONRpc(s, EnclaveServices(STATE))#, concurrent_request_handling=None) #FIXME <-- what about the state?
+        class State: pass
+        STATE = State()
 
+        while True:
+            s, _ = ss.accept()
+            #BSONRpc object spawns internal thread to serve the connection
+
+            BSONRpc(s, EnclaveServices(STATE))#, concurrent_request_handling=None) #FIXME <-- what about the state?
+
+
+if __name__ == '__main__':
+    main()
