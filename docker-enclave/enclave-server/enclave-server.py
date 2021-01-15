@@ -27,8 +27,10 @@ class EnclaveServices(DbServices, ExecServices, AttestationServices):
 
 def main():
     with socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM) as ss:
-        ss.bind((socket.VMADDR_CID_ANY, 5005))
-        ss.listen(10)
+        ALLOWED_CONNECTIONS = 10
+        SERVER_BIND_PORT = 5005
+        ss.bind((socket.VMADDR_CID_ANY, SERVER_BIND_PORT))
+        ss.listen(ALLOWED_CONNECTIONS)
 
         class State: pass
         STATE = State()
