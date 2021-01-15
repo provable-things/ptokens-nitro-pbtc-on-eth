@@ -20,6 +20,7 @@ class NitroKms():
     """KMS interaction class."""
 
     _region_name = None
+    _alias_prefix = None
     _aws_access_key_id = None
     _aws_secret_access_key = None
     _aws_session_token = None
@@ -44,6 +45,13 @@ class NitroKms():
         # for KMS Decrypt calls with this document.
         self._rsa_key = RSA.generate(2048)
         self._public_key = self._rsa_key.publickey().export_key('DER')
+
+    def get_kms_alias_prefix(self):
+        return self._alias_prefix
+
+    def set_kms_alias_prefix(self, prefix):
+        """Set the alias prefix to use for CMK"""
+        self._alias_prefix = prefix
 
     def set_region(self, region):
         """Set the region for this NitroKms instance."""

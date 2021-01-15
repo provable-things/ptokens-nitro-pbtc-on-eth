@@ -15,23 +15,7 @@ def ENSURE_LOCAL_ONLY(rpc):
             [0] == 42), "Permission denied"
 
 
-'''
-This requires connection with KMS, CloudTrail and S3
-'''
 
-def get_ts():
-    ts = int(time.time())
-    return ts
-
-# The reasoning behind this format is:
-#   - 00 makes the alias appears on the top 100 aliases
-#     list given by the Amazon API
-#   - 999 is supposed to be decreased when the format
-#     evolves
-#   - same as for v1
-#   - then the param is a decreasing funcion which makes
-#     sure the next created alias is within the top 100
-KMS_ALIAS_PREFIX = "alias/00999_v1_{}_".format(int(1e12 - get_ts()))
 
 class DbServices(RpcSubservices):
 
@@ -56,16 +40,19 @@ class DbServices(RpcSubservices):
 
     def _kms_getLatestCMK(self):
         aliases = self.STATE.nitro_kms.kms_list_aliases()
-        #print("Found %d aliases" % aliases['AliasCount'])
-        # print(aliases)
-        prefix = KMS_ALIAS_PREFIX
+
+        prefix = self.STATE.nitro_kms.get_kms_alias_prefix()
+        print(f"KMS prefix is : {prefix}")
+
         valid_aliases = [int(i['AliasName'].replace(prefix, ""))
                          for i in aliases['Aliases'] if i['AliasName'].startswith(prefix)]
+
         if len(valid_aliases) == 0:
             return {}
         latest_alias = prefix + str(min(valid_aliases))
         latest_keyid = [i['TargetKeyId']
                         for i in aliases['Aliases'] if i['AliasName'] == latest_alias][0]
+
         return {'alias': latest_alias, 'keyid': latest_keyid}
 
     def _kms_validateCMK(self, keyid):
@@ -75,13 +62,13 @@ class DbServices(RpcSubservices):
         return True
 
     def _kms_nextAlias(self, prev_alias=None):
-       prefix = KMS_ALIAS_PREFIX
+       prefix = self.STATE.nitro_kms.get_kms_alias_prefix()
        if not prev_alias:
             return prefix + "9999999999"
        else:
             return prefix + str(int(prev_alias.split("_")[-1])-1)
 
-    def DB__init(self, rpc, region, credentials):
+    def DB__init(self, rpc, region, credentials, kms_alias_prefix):
         #global CREDENTIALS, AWS_SESSION
         # not self.STATE.credentials:#['CREDENTIALS']: #not 'CREDENTIALS' in globals():
         if True:
@@ -91,6 +78,7 @@ class DbServices(RpcSubservices):
             self.STATE.nitro_kms = NitroKms()
             self.STATE.nitro_kms.set_region(region)
             self.STATE.nitro_kms.set_credentials(credentials)
+            self.STATE.nitro_kms.set_kms_alias_prefix(kms_alias_prefix)
 
             # NOTE: remember alias is guaranteed unique per region, never change region without resetting.. region can be set just during init
 
@@ -220,7 +208,7 @@ class DbServices(RpcSubservices):
 
         assert self.STATE.transacting, "Cannot endtx when not transacting"
 
-        if len(args) == 0 and self._state_hash(self.STATE.cache) == self.STATE.original_hash:  # there is no change!
+        if len(args) == 0 and self._stateB_hash(self.STATE.cache) == self.STATE.original_hash:  # there is no change!
             self.STATE.transacting = False
             self.STATE.cache = {}
             return True
@@ -254,12 +242,15 @@ class DbServices(RpcSubservices):
                 del self.STATE.cache[arg['key']]
 
         # time to sign with CMK1 the new state and add the sig to the state
-        encrypt_response = self.STATE.nitro_kms.kms_encrypt(
-            kms_key_id=CMK1['keyid'], plaintext_bytes=self._state_hash(self.STATE.cache))
+        new_state_hash = self._state_hash(self.STATE.cache)
+        encrypt_response = self.STATE.nitro_kms.kms_encrypt(kms_key_id=CMK1['keyid'], plaintext_bytes=new_state_hash)
         self.STATE.cache[b'_EXT_STATESIG'] = encrypt_response['CiphertextBlob']
+        print(f"New state hash signed: {new_state_hash.hex()}")
 
         self.STATE.parent_vm_client.DB__write_all(
             list(self.STATE.cache.items()))
+
+        print("Everything saved to mydb.dat")
 
         if not self.STATE.first_run:
             self.STATE.nitro_kms.kms_delete_key(CMK0['keyid'])

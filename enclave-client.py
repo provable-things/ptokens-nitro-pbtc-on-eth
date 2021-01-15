@@ -3,6 +3,7 @@
 import os
 import sys
 import json
+import time
 import socket
 import pickle
 import filelock
@@ -13,24 +14,57 @@ from pathlib import Path
 from bsonrpc import BSONRpc
 from bsonrpc import request, notification, service_class
 
-MYDB = {} #in-memory "DB"
+# In-memory "DB"
+DATABASE = {}
 
 @service_class
 class ClientServices(object):
     @request
     def DB__get_all(self, *args):
-        return list(MYDB.items())
+        global DATABASE
+
+        return list(DATABASE.items())
 
     @request
     def DB__write_all(self, data):
-        NEWDB = {}
+        global DATABASE
+
+        tmp_db = {}
         for k, v in data:
-            NEWDB[k] = v
-        f=open("mydb.dat", "wb")
-        f.write(pickle.dumps(NEWDB))
+            tmp_db[k] = v
+        f = open("mydb.dat", "wb")
+        f.write(pickle.dumps(tmp_db))
         f.close()
-        MYDB = NEWDB
+        DATABASE = tmp_db
         return True
+
+def get_kms_alias_prefix():
+    """
+    The reasoning behind this format is:
+      - 00 makes the alias appears on the top 100 aliases
+        list given by the Amazon API
+      - 999 is supposed to be decreased when the format
+        evolves
+      - same as for v1
+      - then the param is a decreasing funcion which makes
+        sure the next created alias is within the top 100
+    """
+    ts = int(time.time())
+    prefix_file = 'kms_alias_prefix.txt'
+    prefix = ""
+    try:
+        with open(prefix_file, 'r') as f:
+            prefix = f.read()
+    except IOError as e:
+        prefix = "alias/00999_v1_{}_".format(int(1e12 - ts))
+        with open(prefix_file, 'w') as f:
+            f.write(prefix)
+        print(f"✘ File {prefix_file} not found, new KMS prefix created: {prefix}", file=sys.stderr)
+
+    assert prefix
+
+    return prefix
+
 
 def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
@@ -78,14 +112,14 @@ def get_encoded_args(args):
     return args_encoded
 
 def main():
-    global MYDB
+    global DATABASE
     lock = filelock.FileLock('nitro.lock', timeout=5)
     exit_code = 0
 
     try:
         with lock:
             try:
-                MYDB = pickle.loads(open("mydb.dat", "rb").read())
+                DATABASE = pickle.loads(open("mydb.dat", "rb").read())
             except:
                 print("✘ Missing mydb.dat, assuming empty state is fine (first run?)", file=sys.stderr)
 
@@ -94,7 +128,7 @@ def main():
             with socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM) as s:
 
                 # TODO: set a socket/rpc timeout here to 2 mins
-
+                # s.settimeout(120)
                 s.connect((42, 5005))
 
                 # Using python `with obj:` clause doesn't work
@@ -111,10 +145,10 @@ def main():
                         result = server.DEBUG(args[1])
                         print(result)
                     elif len(args) > 0 and args[0] == "INIT":
-                        result = server.DB__init(get_aws_region(), get_aws_session_token())
+                        result = server.DB__init(get_aws_region(), get_aws_session_token(), get_kms_alias_prefix())
                         print(result)
                     else:
-                        server.DB__init(get_aws_region(), get_aws_session_token())
+                        server.DB__init(get_aws_region(), get_aws_session_token(), get_kms_alias_prefix())
                         args_encoded = get_encoded_args(args)
                         (stdout, stderr) = server.exec(args_encoded)
 
