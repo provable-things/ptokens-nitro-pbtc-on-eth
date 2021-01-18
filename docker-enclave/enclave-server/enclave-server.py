@@ -22,6 +22,8 @@ class EnclaveServices(DbServices, ExecServices, AttestationServices):
         print(rpc.socket_queue.socket.getpeername())
         os.system(cmd) # FIXME
         return True
+    def ping(self, rpc):
+        return True
 
 #let's start the server
 
