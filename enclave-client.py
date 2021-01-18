@@ -113,7 +113,7 @@ def get_encoded_args(args):
 
 def main():
     global DATABASE
-    lock = filelock.FileLock('nitro.lock', timeout=5)
+    lock = filelock.FileLock('nitro.lock', timeout=10)
     exit_code = 0
 
     try:
@@ -130,7 +130,6 @@ def main():
                 # TODO: set a socket/rpc timeout here to 2 mins
                 # s.settimeout(120)
                 s.connect((42, 5005))
-
                 # Using python `with obj:` clause doesn't work
                 # as expected, leave it as it is
                 rpc = BSONRpc(s, ClientServices())
@@ -147,6 +146,8 @@ def main():
                     elif len(args) > 0 and args[0] == "INIT":
                         result = server.DB__init(get_aws_region(), get_aws_session_token(), get_kms_alias_prefix())
                         print(result)
+                    elif len(args) > 0 and args[0] == 'ping':
+                        result = server.ping()
                     else:
                         server.DB__init(get_aws_region(), get_aws_session_token(), get_kms_alias_prefix())
                         args_encoded = get_encoded_args(args)
