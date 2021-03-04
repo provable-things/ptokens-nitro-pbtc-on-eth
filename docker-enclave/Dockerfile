@@ -1,7 +1,7 @@
 # Start the Docker image from the Alpine Linux 
 # distribution, with glibc support
 
-FROM frolvlad/alpine-glibc
+FROM frolvlad/alpine-glibc:alpine-3.12_glibc-2.3
 
 RUN apk add --no-cache \
         libstdc++ \
