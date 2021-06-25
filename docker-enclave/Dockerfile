@@ -32,4 +32,4 @@ COPY ./enclave-server ./enclave-server/
 
 # Start the server application inside 
 # the enclave
-ENTRYPOINT ["./entrypoint.sh"]
+CMD ["./entrypoint.sh"]
